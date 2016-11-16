@@ -95,6 +95,49 @@ static struct phy_driver KSZ8081_driver = {
 };
 
 /**
+ * KSZ8061      // MM minimax added
+ */
+#define MII_KSZ8061_PHY_OMSO			0x16
+#define MII_KSZ8061_PHY_OMSO_QuietWire_OFF	(1 << 12)
+
+/*
+   Beachte:
+   Register 0x0D+0x0E (MMD) neu gegen 8051 und 8081
+   Register 0x13            neu
+   Register 0x14 (ultraDeepSleep)  neu
+   Register 0x16   verkuerzt plus QuietWire	
+   Register 0x17 + 0x18    Aenderungen
+   Register 0x1c   neu    loopback
+*/
+
+static int ksz8061_config(struct phy_device *phydev)
+{
+	unsigned val;
+
+	printf("(ksz8061) ");
+	/* No need to disable NAND-tree */
+	/* KSZ8061 has NAND tree, but not Bit 16.5 as KSZ8051 */
+
+	/* Disable(=1) or enable(=0) Quiet-Wire filtering */
+	val = phy_read(phydev, MDIO_DEVAD_NONE, MII_KSZ8061_PHY_OMSO);
+	val |= MII_KSZ8061_PHY_OMSO_QuietWire_OFF;
+	phy_write(phydev, MDIO_DEVAD_NONE, MII_KSZ8061_PHY_OMSO, val);
+
+	return genphy_config(phydev);
+}
+
+static struct phy_driver KSZ8061_driver = {
+	.name = "Micrel KSZ8061",
+	.uid = 0x221570,
+	.mask = 0xfffff0,
+	.features = PHY_BASIC_FEATURES,
+	.config = &ksz8061_config,
+	.startup = &genphy_startup,
+	.shutdown = &genphy_shutdown,
+};
+
+
+/**
  * KSZ8895
  */
 
@@ -181,7 +224,12 @@ static struct phy_driver KS8721_driver = {
 static int ksz90xx_startup(struct phy_device *phydev)
 {
 	unsigned phy_ctl;
-	genphy_update_link(phydev);
+	int ret;
+
+	ret = genphy_update_link(phydev);
+	if (ret)
+		return ret;
+
 	phy_ctl = phy_read(phydev, MDIO_DEVAD_NONE, MII_KSZ90xx_PHY_CTL);
 
 	if (phy_ctl & MIIM_KSZ90xx_PHYCTL_DUPLEX)
@@ -482,11 +530,39 @@ static struct phy_driver ksz9031_driver = {
 	.readext = &ksz9031_phy_extread,
 };
 
+int ksz886x_config(struct phy_device *phydev)
+{
+	/* we are connected directly to the switch without
+	 * dedicated PHY. */
+	printf("(ksz886x) ");
+	phydev->link = 1;
+	phydev->duplex = DUPLEX_FULL;
+	phydev->speed = SPEED_100;
+	return 0;
+}
+
+static int ksz886x_startup(struct phy_device *phydev)
+{
+	return 0;
+}
+
+static struct phy_driver ksz886x_driver = {
+	.name = "Micrel KSZ886x Switch",
+	.uid  = 0x00221430,
+	.mask = 0xfffff0,
+	.features = PHY_BASIC_FEATURES,
+	.config = &ksz886x_config,
+	.startup = &ksz886x_startup,
+	.shutdown = &genphy_shutdown,
+};
+
 int phy_micrel_init(void)
 {
+	printf("Micrel init\n"); // MM Minimax add
 	phy_register(&KSZ804_driver);
 	phy_register(&KSZ8031_driver);
 	phy_register(&KSZ8051_driver);
+	phy_register(&KSZ8061_driver);  // MM Minimax added
 	phy_register(&KSZ8081_driver);
 #ifdef CONFIG_PHY_MICREL_KSZ9021
 	phy_register(&ksz9021_driver);
@@ -495,5 +571,6 @@ int phy_micrel_init(void)
 #endif
 	phy_register(&ksz9031_driver);
 	phy_register(&ksz8895_driver);
+	phy_register(&ksz886x_driver);
 	return 0;
 }

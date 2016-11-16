@@ -1,0 +1,16 @@
+
+if TARGET_MX7DMINIMAX
+
+config SYS_BOARD
+	default "mx7dminimax"
+
+config SYS_VENDOR
+	default "kws"
+
+config SYS_SOC
+	default "mx7"
+
+config SYS_CONFIG_NAME
+	default "mx7dminimax"
+
+endif
